@@ -1,0 +1,44 @@
+name: Fetch
+
+# Runs the fetcher of this repository on a sealed job. Started by the owner or the owner's app only.
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Sealed job
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: fetch
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: |
+          pip install --quiet --only-binary=:all: pynacl==1.6.2 httpx==0.28.1
+      - run: python fetch.py "$RUNNER_TEMP/result" >/dev/null 2>&1
+        env:
+          OPEN_KEY: ${{ secrets.OPEN_KEY }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: result
+          path: ${{ runner.temp }}/result
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: ignore
